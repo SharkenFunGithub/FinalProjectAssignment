@@ -1,6 +1,9 @@
 package org.example;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,25 +49,11 @@ public class Course {
             return false; // Student already registered
         }
         registeredStudents.add(student);
-        finalScores.add(null); // Add a new null element for the finalScores
+        finalScores.add(0.0); // Add a new 0.0 element for the finalScores
         for (Assignment assignment : assignments) {
-            assignment.getScores().add(null); // Add a new null score for the student in each assignment
+            assignment.getScores().add(0); // Add a new 0 score for the student in each assignment
         }
         return true;
-    }
-
-    public int[] calcStudentsAverage() {
-        int[] averages = new int[registeredStudents.size()];
-        for (int i = 0; i < registeredStudents.size(); i++) {
-            Student student = registeredStudents.get(i);
-            double weightedTotal = 0;
-            for (Assignment assignment : assignments) {
-                Double score = Double.valueOf(assignment.getScores().get(i));
-                weightedTotal += score * assignment.getWeight();
-            }
-            averages[i] = (int) Math.round(weightedTotal);
-        }
-        return averages;
     }
 
     public void addAssignment(String assignmentName, double weight, int maxScore) {
@@ -73,7 +62,7 @@ public class Course {
         }
         assignments.add(new Assignment(assignmentName, weight, maxScore));
         for (int i = 0; i < registeredStudents.size(); i++) {
-            assignments.getLast().getScores().add(null); // Add a new null score for each student
+            assignments.getLast().getScores().add(0); // Add a new 0 score for each student
         }
     }
 
@@ -85,36 +74,44 @@ public class Course {
         }
 
         // Generate random scores for each assignment and student
-        for (int i = 0; i < registeredStudents.size(); i++) {
-            Student student = registeredStudents.get(i);
-            for (Assignment assignment : assignments) {
-                assignment.generateRandomScore(); // Generate a random score for each assignment
-                Integer score = assignment.getScores().get(i);
-                if (score != null) {
-                    assignment.getScores().add(score);
-                }
+        for (Assignment assignment : assignments) {
+            for (int i = 0; i < registeredStudents.size(); i++) {
+                int randomScore = (int) (Math.random() * assignment.getMaxScore() + 1); // Generate a random score
+                assignment.getScores().set(i, randomScore); // Set the random score for the student
             }
         }
 
         // Calculate final scores for each student
+        calculateFinalScores();
+    }
+
+    public void calculateFinalScores() {
         for (int i = 0; i < registeredStudents.size(); i++) {
-            Student student = registeredStudents.get(i);
-            double finalScore = calculateFinalScore(student);
-            finalScores.add(finalScore);
+            double finalScore = 0.0;
+            for (Assignment assignment : assignments) {
+                if (assignment.getScores().get(i) != null) {
+                    double score = assignment.getScores().get(i);
+                    double weight = assignment.getWeight();
+                    finalScore += (score / assignment.getMaxScore()) * weight * 100;
+                }
+            }
+            finalScores.set(i, finalScore); // Set the final score for the student
         }
     }
 
-    public double calculateFinalScore(Student student) {
-        for (int i = 0; i < registeredStudents.size(); i++) {
-            double finalScore = 0.0;
-            for (int j = 0; j < assignments.size(); j++) {
-                double assignmentScore = assignments.get(j).getScores().get(i); // Getting the score for the current student
-                double weight = assignments.get(j).getWeight();
-                finalScore += (assignmentScore / assignments.get(j).getMaxScore()) * weight;
+    public double[] calcStudentsAverage() {
+        double[] averages = new double[assignments.size()]; // Not including final score
+        int studentCount = registeredStudents.size();
+
+        for (int j = 0; j < assignments.size(); j++) {
+            double total = 0;
+            for (int i = 0; i < studentCount; i++) {
+                total += assignments.get(j).getScores().get(i);
             }
-            finalScores.add(finalScore); // Adding the final score for the current student
+            averages[j] = total / studentCount;
         }
-        return 0;
+
+        return averages;
     }
 
     public void displayScores() {
@@ -131,13 +128,21 @@ public class Course {
             Student student = registeredStudents.get(i);
             System.out.printf("%-20s", student.getStudentName());
             for (Assignment assignment : assignments) {
-                ArrayList<Integer> scores = assignment.getScores();
-                Double score = Double.valueOf(scores != null && i < scores.size() ? scores.get(i) : null);
-                System.out.printf("%-15s", score != null ? score.intValue() : "N/A");
+                Integer score = assignment.getScores().get(i);
+                System.out.printf("%-15s", score != null ? score : "N/A");
             }
-            System.out.printf("%-15.2f", finalScores.get(i)); // Assuming finalScores is a list of doubles
+            System.out.printf("%-15.2f", finalScores.get(i) != null ? finalScores.get(i) : 0.0);
             System.out.println();
         }
+
+        // Calculate and print average scores for each assignment
+        double[] averages = calcStudentsAverage();
+        System.out.printf("%-20s", "Average");
+        for (int j = 0; j < assignments.size(); j++) {
+            System.out.printf("%-15.2f", averages[j]);
+        }
+        System.out.printf("%-15.2f", finalScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0)); // Final score average
+        System.out.println();
     }
 
     public String toSimplifiedString() {
@@ -161,29 +166,5 @@ public class Course {
                     student.getStudentId(), student.getStudentName(), student.getDepartment().getDepartmentName()));
         }
         return sb.toString();
-    }
-
-    public int[] calcStudentAvg() {
-        int[] avgScores = new int[registeredStudents.size()];
-
-        // Calculate the average score for each student
-        for (int i = 0; i < registeredStudents.size(); i++) {
-            Student student = registeredStudents.get(i);
-            double totalScore = 0;
-            int totalAssignments = assignments.size();
-
-            // Sum up the scores of all assignments for the student
-            for (Assignment assignment : assignments) {
-                int index = assignments.indexOf(assignment);
-                double score = assignment.getScores().get(i); // Get the score for the current student
-                totalScore += score;
-            }
-
-            // Calculate the average score for the student
-            double avgScore = totalScore / totalAssignments;
-            avgScores[i] = (int) Math.round(avgScore); // Round the average score to the nearest integer
-        }
-
-        return avgScores;
     }
 }

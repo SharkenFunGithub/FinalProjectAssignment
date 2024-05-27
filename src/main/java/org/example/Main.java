@@ -6,7 +6,7 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
-        double weightNumberAss = 0.3;
+        double weightNumberAss = 0.1;
         double weightNumberExam = 0.4;
         int maxNumber = 100;
 
